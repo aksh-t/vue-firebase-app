@@ -7,7 +7,7 @@ import firebase from "firebase";
 
 Vue.config.productionTip = false;
 
-var firebaseConfig = {
+const firebaseConfig = {
   apiKey: "AIzaSyD-mktsdvfvBzbR7JYU2z_A1qc7FACJMkw",
   authDomain: "hotate-6f260.firebaseapp.com",
   databaseURL: "https://hotate-6f260.firebaseio.com",

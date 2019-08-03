@@ -4,8 +4,8 @@
       <h1>Chat</h1>
       <!-- ログイン時にはフォームとログアウトボタンを表示 -->
       <div v-if="user.uid" key="login">
-        <img :src="user.photoURL" style="width: 50px; height: 50px;"/>
-        <input type="text" v-model="user.displayName">
+        <img :src="user.photoURL" style="width: 50px; height: 50px;" />
+        <input type="text" v-model="user.displayName" />
         <button type="button" @click="updateName">名前更新</button>
         <button type="button" @click="doLogout">ログアウト</button>
       </div>
@@ -35,7 +35,7 @@
     </transition-group>
 
     <!-- 入力フォーム -->
-    <form action="" @submit.prevent="doSend" class="form">
+    <form action @submit.prevent="doSend" class="form">
       <textarea
         v-model="input"
         :disabled="!user.uid"
@@ -51,6 +51,7 @@
 <script>
 // firebase モジュール
 import firebase from "firebase";
+import firestore from "firebase";
 // 改行を <br> タグに変換するモジュール
 import Nl2br from "vue-nl2br";
 export default {
@@ -60,20 +61,29 @@ export default {
     return {
       user: {}, // ユーザー情報
       chat: [], // 取得したメッセージを入れる配列
-      input: "" // 入力したメッセージ
+      input: "", // 入力したメッセージ
+      db: {}
     };
   },
   created() {
     firebase.auth().onAuthStateChanged(user => {
+      // Initialize Cloud Firestore through Firebase
+      this.db = firebase.firestore();
+
       this.user = user ? user : {};
-      const ref_message = firebase.database().ref("message");
+
       if (user) {
         this.chat = [];
-        // message に変更があったときのハンドラを登録
-        ref_message.limitToLast(10).on("child_added", this.childAdded);
-      } else {
-        // message に変更があったときのハンドラを解除
-        ref_message.limitToLast(10).off("child_added", this.childAdded);
+        const childAdded = this.childAdded;
+
+        this.db.collection("messages").onSnapshot(function(snapshot) {
+          snapshot.docChanges().forEach(function(change) {
+            if (change.type === "added") {
+              console.log("New message: ", change.doc.data());
+              childAdded(change.doc);
+            }
+          });
+        });
       }
     });
   },
@@ -89,7 +99,7 @@ export default {
     },
     // ログアウト処理
     updateName() {
-      this.user.updateProfile({displayName: this.user.displayName})
+      this.user.updateProfile({ displayName: this.user.displayName });
     },
     // スクロール位置を一番下に移動
     scrollBottom() {
@@ -99,10 +109,10 @@ export default {
     },
     // 受け取ったメッセージをchatに追加
     // データベースに新しい要素が追加されると随時呼び出される
-    childAdded(snap) {
-      const message = snap.val();
+    childAdded(doc) {
+      const message = doc.data();
       this.chat.push({
-        key: snap.key,
+        key: doc.id,
         name: message.name,
         image: message.image,
         message: message.message
@@ -111,20 +121,21 @@ export default {
     },
     doSend() {
       if (this.user.uid && this.input.length) {
-        // firebase にメッセージを追加
-        firebase
-          .database()
-          .ref("message")
-          .push(
-            {
-              message: this.input,
-              name: this.user.displayName,
-              image: this.user.photoURL
-            },
-            () => {
-              this.input = ""; // フォームを空にする
-            }
-          );
+        const self = this;
+        this.db
+          .collection("messages")
+          .add({
+            message: this.input,
+            name: this.user.displayName,
+            image: this.user.photoURL
+          })
+          .then(function(docRef) {
+            self.input = "";
+            console.log("Document written with ID: ", docRef.id);
+          })
+          .catch(function(error) {
+            console.error("Error adding document: ", error);
+          });
       }
     }
   }

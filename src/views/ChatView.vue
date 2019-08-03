@@ -1,6 +1,6 @@
 <template>
   <div class="chatView">
-    <Chat/>
+    <Chat />
   </div>
 </template>
 
